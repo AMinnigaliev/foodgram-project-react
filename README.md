@@ -28,7 +28,7 @@ https://github.com/AMinnigaliev/foodgram-project-react/actions/workflows/main.ym
    production.yml***
 3. Создайте файл ***.env*** на сервере в директории ***foodgram***
 4. В директории foodgram выполните команду `sudo docker compose -f 
-   docker-compose.production.yml up -d `
+   docker-compose.production.yml up -d`
 5. Выполните миграции, соберите статические файлы бэкенда и скопируйте их в 
    ***/backend_static/static/***:
 ```
@@ -36,7 +36,7 @@ sudo docker compose -f docker-compose.production.yml exec backend python manage.
 sudo docker compose -f docker-compose.production.yml exec backend python manage.py collectstatic
 sudo docker compose -f docker-compose.production.yml exec backend cp -r /app/collected_static/. /backend_static/static/
 ```
-PS: *Проект настроен на порт ***9000****
+PS: *Проект настроен на порт ***8800****
 
 Содержание файл ***.env***:
 - POSTGRES_DB - имя базы данных (для PostgreSQL. необязательный, при 

@@ -241,7 +241,9 @@ class RecipeSerializer(ModelSerializer):
         valid_ingredients = {}
 
         for ingredient in ingredients:
-            if not isinstance(ingredient['amount'], int):
+            try:
+                ingredient['amount'] = int(ingredient['amount'])
+            except ValueError:
                 raise ValidationError(
                     'Количество ингредиента указано в неверном формате.'
                 )

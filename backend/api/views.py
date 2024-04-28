@@ -128,12 +128,15 @@ class RecipeViewSet(ModelViewSet):
         """Скачивание файл со списком покупок."""
 
         if not request.user.shopping_cart.exists():
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'errors': 'Список покупок пуст.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         list_of_ingredients = (
             RecipeIngredient.objects
             .filter(recipe__in_shopping_cart__user=request.user)
-            .values('ingredient', 'amount')
+            .values('ingredient')
             .annotate(total_amount=Sum('amount'))
             .values_list(
                 'ingredient__name',
@@ -152,12 +155,12 @@ class RecipeViewSet(ModelViewSet):
         response = HttpResponse(
             'Список покупок:\n'
             + '\n'.join(shopping_list)
-            + '\n\nПриятного аппетита.',
-            content_type='application/pdf',
+            + '\n\nПриятного аппетита!',
+            content_type='text.txt; charset=utf-8',
         )
-        response["Content-Disposition"] = (
-            f'attachment; '
-            f'filename={request.user.username}_shopping_list.pdf'
+        filename = f'{request.user.username}_shopping_list.txt'
+        response['Content-Disposition'] = (
+            f'attachment; filename={filename}'
         )
         return response
 
