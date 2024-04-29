@@ -15,11 +15,14 @@ class SubscriptionInline(admin.TabularInline):
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == 'author':
-            parent_obj = self.model._meta.get_field(
-                'user'
-            ).remote_field.model.objects.get(
-                id=request.resolver_match.kwargs['object_id']
-            )
+            try:
+                parent_obj = self.model._meta.get_field(
+                    'user'
+                ).remote_field.model.objects.get(
+                    id=request.resolver_match.kwargs['object_id']
+                )
+            except KeyError:
+                parent_obj = None
             if parent_obj:
                 kwargs['queryset'] = kwargs.get(
                     'queryset', db_field.related_model.objects

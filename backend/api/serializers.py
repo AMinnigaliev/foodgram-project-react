@@ -33,7 +33,7 @@ class FoodgramUserSerializer(UserSerializer):
 
         if user.is_anonymous or (user == obj):
             return False
-        return user.subscribers.filter(author=obj).exists()
+        return user.subscriptions.filter(author=obj).exists()
 
 
 class FoodgramUserCreateSerializer(UserCreateSerializer):
@@ -59,10 +59,7 @@ class SubscriptionSerializer(FoodgramUserSerializer):
             'id', 'username', 'email', 'first_name', 'last_name',
             'is_subscribed', 'recipes', 'recipes_count',
         )
-        read_only_fields = (
-            'id', 'username', 'email', 'first_name', 'last_name',
-            'is_subscribed', 'recipes', 'recipes_count',
-        )
+        read_only_fields = ('__all__',)
 
     def get_recipes(self, obj):
         """Выдача рецепта в кратком виде."""
