@@ -31,9 +31,9 @@ class FoodgramUserSerializer(UserSerializer):
 
         user = self.context.get('request').user
 
-        if user.is_anonymous:
+        if user.is_anonymous or (user == obj):
             return False
-        return user.subscribers.filter(user=obj).exists()
+        return user.subscribers.filter(author=obj).exists()
 
 
 class FoodgramUserCreateSerializer(UserCreateSerializer):
