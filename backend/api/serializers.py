@@ -215,53 +215,11 @@ class RecipeSerializer(ModelSerializer):
         return value
 
     def validate(self, data):
-        tags_id = self.initial_data.get('tags')
+        valid_tags = self._check_tags(self.initial_data.get('tags'))
 
-        if not tags_id:
-            raise ValidationError('Не указаны теги.')
-
-        set_tags_id = set(tags_id)
-
-        if len(set_tags_id) != len(tags_id):
-            raise ValidationError('Указан одинаковые теги.')
-
-        valid_tags = Tag.objects.filter(id__in=tags_id)
-
-        if len(valid_tags) != len(tags_id):
-            raise ValidationError('Указан несуществующий тег.')
-
-        ingredients = self.initial_data.get('ingredients')
-
-        if not ingredients:
-            raise ValidationError('Не указаны ингредиенты.')
-
-        valid_ingredients = {}
-
-        for ingredient in ingredients:
-            try:
-                ingredient['amount'] = int(ingredient['amount'])
-            except ValueError:
-                raise ValidationError(
-                    'Количество ингредиента указано в неверном формате.'
-                )
-            if ingredient['amount'] < 1:
-                raise ValidationError(
-                    'Количество ингредиентов не должно быть меньше 1.'
-                )
-            if not isinstance(ingredient['id'], int):
-                raise ValidationError(
-                    'Id ингредиента указан в неверном формате.'
-                )
-            if ingredient['id'] < 1:
-                raise ValidationError(
-                    'Id ингредиента не должно быть меньше 1.'
-                )
-            if valid_ingredients.get(ingredient['id']):
-                raise ValidationError(
-                    'Повторение ингредиентов запрещено.'
-                )
-            valid_ingredients[ingredient['id']] = ingredient['amount']
-
+        valid_ingredients = self._check_ingredients(
+            self.initial_data.get('ingredients')
+        )
         db_ingredients = Ingredient.objects.filter(
             pk__in=valid_ingredients.keys()
         )
@@ -330,3 +288,58 @@ class RecipeSerializer(ModelSerializer):
             )
 
         RecipeIngredient.objects.bulk_create(objs)
+
+    @staticmethod
+    def _check_tags(tags_id):
+        """Проверка валидности переданных тегов."""
+
+        if not tags_id:
+            raise ValidationError('Не указаны теги.')
+
+        set_tags_id = set(tags_id)
+
+        if len(set_tags_id) != len(tags_id):
+            raise ValidationError('Указан одинаковые теги.')
+
+        valid_tags = Tag.objects.filter(id__in=tags_id)
+
+        if len(valid_tags) != len(tags_id):
+            raise ValidationError('Указан несуществующий тег.')
+
+        return valid_tags
+
+    @staticmethod
+    def _check_ingredients(ingredients):
+        """Проверка валидности переданных ингредиентов."""
+
+        if not ingredients:
+            raise ValidationError('Не указаны ингредиенты.')
+
+        valid_ingredients = {}
+
+        for ingredient in ingredients:
+            try:
+                ingredient['amount'] = int(ingredient['amount'])
+            except ValueError:
+                raise ValidationError(
+                    'Количество ингредиента указано в неверном формате.'
+                )
+            if ingredient['amount'] < 1:
+                raise ValidationError(
+                    'Количество ингредиентов не должно быть меньше 1.'
+                )
+            if not isinstance(ingredient['id'], int):
+                raise ValidationError(
+                    'Id ингредиента указан в неверном формате.'
+                )
+            if ingredient['id'] < 1:
+                raise ValidationError(
+                    'Id ингредиента не должно быть меньше 1.'
+                )
+            if valid_ingredients.get(ingredient['id']):
+                raise ValidationError(
+                    'Повторение ингредиентов запрещено.'
+                )
+            valid_ingredients[ingredient['id']] = ingredient['amount']
+
+        return valid_ingredients
