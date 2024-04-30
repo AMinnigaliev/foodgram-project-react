@@ -1,6 +1,5 @@
 from django.contrib.auth import get_user_model
 from django.db.models import Q, Sum
-from django.db.utils import IntegrityError
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from djoser.views import UserViewSet
@@ -158,9 +157,8 @@ class RecipeViewSet(ModelViewSet):
             + '\n\nПриятного аппетита!',
             content_type='text.txt; charset=utf-8',
         )
-        filename = f'{request.user.username}_shopping_list.txt'
         response['Content-Disposition'] = (
-            f'attachment; filename={filename}'
+            'attachment; filename="shopping-list.txt"'
         )
         return response
 
@@ -177,14 +175,13 @@ class RecipeViewSet(ModelViewSet):
             raise ValidationError(
                 'Данного рецепта не существует.'
             )
-
-        try:
-            model(recipe=recipe, user=user).save()
-        except IntegrityError:
-            return Response(
-                {'error': f'Рецепт уже добавлен в {list_name}.'},
-                status=status.HTTP_400_BAD_REQUEST,
+        subscride = model.objects.filter(recipe=recipe, user=user)
+        if subscride.exists():
+            raise ValidationError(
+                f'Рецепт уже добавлен в {list_name}.',
             )
+
+        model(recipe=recipe, user=user).save()
 
         serializer = ShortRecipeSerializer(recipe)
         return Response(serializer.data, status=status.HTTP_201_CREATED)

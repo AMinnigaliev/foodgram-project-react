@@ -1,12 +1,9 @@
 from django.contrib.auth import get_user_model
-from django.db.models import F
 from django.db.transaction import atomic
-from django.db.utils import IntegrityError
 from djoser.serializers import UserCreateSerializer, UserSerializer
 from drf_extra_fields.fields import Base64ImageField
-from rest_framework import status
-from rest_framework.serializers import (ModelSerializer, SerializerMethodField,
-                                        ValidationError)
+from rest_framework.serializers import (ModelSerializer, ReadOnlyField,
+                                        SerializerMethodField, ValidationError)
 from rest_framework.validators import UniqueTogetherValidator
 
 from recipes.models import Ingredient, Recipe, RecipeIngredient, Tag
@@ -88,7 +85,7 @@ class SubscriptionCreateSerializer(ModelSerializer):
             UniqueTogetherValidator(
                 queryset=model.objects.all(),
                 fields=('user', 'author'),
-                message='Вы уже подписаны на этого пользователя!'
+                message='Вы уже подписаны на этого пользователя.'
             )
         ]
 
@@ -98,8 +95,7 @@ class SubscriptionCreateSerializer(ModelSerializer):
         author = data.get('author')
         if user == author:
             raise ValidationError(
-                detail='Нельзя подписаться на самого себя!',
-                code=status.HTTP_400_BAD_REQUEST
+                'Нельзя подписаться на самого себя.',
             )
         return data
 
@@ -122,6 +118,19 @@ class IngredientSerializer(ModelSerializer):
         read_only_fields = ('__all__',)
 
 
+class RecipeIngredientSerializer(ModelSerializer):
+    """Сериализатор для вывода ингредиентов содержащихся в рецепте."""
+    name = ReadOnlyField(source='ingredient.name')
+    measurement_unit = ReadOnlyField(source='ingredient.measurement_unit')
+
+    class Meta:
+        model = RecipeIngredient
+        fields = (
+            'id', 'name', 'measurement_unit', 'amount'
+        )
+        read_only_fields = ('__all__',)
+
+
 class ShortRecipeSerializer(ModelSerializer):
     """Сериализатор для вывода рецептов во вложенном поле recipes."""
 
@@ -135,7 +144,9 @@ class RecipeSerializer(ModelSerializer):
     """Сериализатор для рецептов."""
     tags = TagSerializer(many=True, read_only=True)
     author = FoodgramUserSerializer(read_only=True)
-    ingredients = SerializerMethodField()
+    ingredients = RecipeIngredientSerializer(
+        many=True, read_only=True, source='recipeingredient_set'
+    )
     is_favorited = SerializerMethodField()
     is_in_shopping_cart = SerializerMethodField()
     image = Base64ImageField()
@@ -158,15 +169,6 @@ class RecipeSerializer(ModelSerializer):
             'is_favorite',
             'is_shopping_cart',
         )
-
-    def get_ingredients(self, recipe):
-        """Список ингредиентов для рецепта."""
-        ingredients = recipe.ingredients.values(
-            'id', 'name', 'measurement_unit', amount=F(
-                'recipeingredient__amount'
-            )
-        )
-        return ingredients
 
     def get_is_favorited(self, recipe):
         """Проверка, находится ли рецепт в избранном у пользователя"""
@@ -238,22 +240,25 @@ class RecipeSerializer(ModelSerializer):
                 'author': self.context.get('request').user,
             }
         )
+
+        recipe = Recipe.objects.filter(name=data['name'])
+        if recipe.exists():
+            raise ValidationError(
+                f'У вас уже есть рецепт: {recipe[0]}.',
+            )
+
         return data
 
     @atomic
     def create(self, validated_data):
         tags = validated_data.pop('tags')
         ingredients = validated_data.pop('ingredients')
-        try:
-            recipe = Recipe.objects.create(
-                **validated_data,
-            )
-        except IntegrityError:
-            raise ValidationError(
-                'Этот рецепт вами уже добавлен.'
-            )
+
+        recipe = Recipe.objects.create(**validated_data)
+
         recipe.tags.set(tags)
         self.recipe_ingredient_create(recipe, ingredients)
+
         return recipe
 
     @atomic
@@ -261,17 +266,13 @@ class RecipeSerializer(ModelSerializer):
         tags = validated_data.pop("tags")
         ingredients = validated_data.pop("ingredients")
 
-        for key, value in validated_data.items():
-            if hasattr(recipe, key):
-                setattr(recipe, key, value)
+        recipe = super().update(recipe, validated_data)
 
-        if tags:
-            recipe.tags.clear()
-            recipe.tags.set(tags)
+        recipe.tags.clear()
+        recipe.tags.set(tags)
 
-        if ingredients:
-            recipe.ingredients.clear()
-            self.recipe_ingredient_create(recipe, ingredients)
+        recipe.ingredients.clear()
+        self.recipe_ingredient_create(recipe, ingredients)
 
         recipe.save()
         return recipe
@@ -324,18 +325,12 @@ class RecipeSerializer(ModelSerializer):
                 raise ValidationError(
                     'Количество ингредиента указано в неверном формате.'
                 )
+
             if ingredient['amount'] < 1:
                 raise ValidationError(
                     'Количество ингредиентов не должно быть меньше 1.'
                 )
-            if not isinstance(ingredient['id'], int):
-                raise ValidationError(
-                    'Id ингредиента указан в неверном формате.'
-                )
-            if ingredient['id'] < 1:
-                raise ValidationError(
-                    'Id ингредиента не должно быть меньше 1.'
-                )
+
             if valid_ingredients.get(ingredient['id']):
                 raise ValidationError(
                     'Повторение ингредиентов запрещено.'
