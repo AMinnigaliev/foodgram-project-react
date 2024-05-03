@@ -144,17 +144,17 @@ class RecipeViewSet(ModelViewSet):
             )
         )
 
-        shopping_list = []
+        shopping_list = ['Список покупок:\n']
         for count, ingredient in enumerate(list_of_ingredients, 1):
             name, amount, unit = ingredient
             shopping_list.append(
                 f'{count}. {name} - {amount}{unit}.'
             )
+        shopping_list.append('\nПриятного аппетита!')
+        shopping_list = '\n'.join(shopping_list)
 
         response = HttpResponse(
-            'Список покупок:\n'
-            + '\n'.join(shopping_list)
-            + '\n\nПриятного аппетита!',
+            shopping_list,
             content_type='text.txt; charset=utf-8',
         )
         response['Content-Disposition'] = (

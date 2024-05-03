@@ -120,6 +120,7 @@ class IngredientSerializer(ModelSerializer):
 
 class RecipeIngredientSerializer(ModelSerializer):
     """Сериализатор для вывода ингредиентов содержащихся в рецепте."""
+    id = ReadOnlyField(source='ingredient.id')
     name = ReadOnlyField(source='ingredient.name')
     measurement_unit = ReadOnlyField(source='ingredient.measurement_unit')
 
@@ -225,6 +226,7 @@ class RecipeSerializer(ModelSerializer):
         db_ingredients = Ingredient.objects.filter(
             pk__in=valid_ingredients.keys()
         )
+
         if len(db_ingredients) != len(valid_ingredients):
             raise ValidationError('Не все указанные ингредиенты существуют.')
 
@@ -241,11 +243,12 @@ class RecipeSerializer(ModelSerializer):
             }
         )
 
-        recipe = Recipe.objects.filter(name=data['name'])
-        if recipe.exists():
-            raise ValidationError(
-                f'У вас уже есть рецепт: {recipe[0]}.',
-            )
+        if self.context["request"].method != 'PATCH':
+            recipe = Recipe.objects.filter(name=data['name'])
+            if recipe.exists():
+                raise ValidationError(
+                    f'У вас уже есть рецепт: {recipe[0]}.',
+                )
 
         return data
 
